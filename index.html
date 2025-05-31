@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen Usaha UMKM</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            text-align: center;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #28a745;
+            color: #fff;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .edit-btn {
+            background-color: #ffc107;
+        }
+        .edit-btn:hover {
+            background-color: #e0a800;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+        .export-btn {
+            background-color: #17a2b8;
+        }
+        .export-btn:hover {
+            background-color: #138496;
+        }
+        .logout-btn {
+            background-color: #6c757d;
+            float: right;
+        }
+        .logout-btn:hover {
+            background-color: #5a6268;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: #fff;
+        }
+        .tab {
+            display: none;
+        }
+        .tab.active {
+            display: block;
+        }
+        .tabs {
+            margin-bottom: 20px;
+        }
+        .tabs button {
+            background-color: #007bff;
+            margin-right: 5px;
+        }
+        .tabs button:hover {
+            background-color: #0056b3;
+        }
+        #chartContainer {
+            margin-top: 20px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+        }
+        .summary p {
+            margin: 5px 0;
+        }
+        .action-buttons {
+            margin-bottom: 15px;
+        }
+        #loginPage, #mainPage {
+            transition: opacity 0.3s;
+        }
+        #loginPage.hidden, #mainPage.hidden {
+            display: none;
+        }
+        /* Styling untuk Notifikasi */
+        #notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: #fff;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        #notification.success {
+            background-color: #28a745;
+        }
+        #notification.error {
+            background-color: #dc3545;
+        }
+        #notification.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Elemen Notifikasi -->
+    <div id="notification"></div>
+
+    <!-- Halaman Login -->
+    <div id="loginPage" class="login-container">
+        <h2>Login</h2>
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="Masukkan username">
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Masukkan password">
+        </div>
+        <button onclick="login()">Login</button>
+        <button onclick="register()" style="background-color: #007bff;">Daftar</button>
+        <p id="loginError" style="color: red; text-align: center;"></p>
+    </div>
+
+    <!-- Halaman Utama -->
+    <div id="mainPage" class="container hidden">
+        <h1>Manajemen Usaha UKM</h1>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+        <div class="tabs">
+            <button onclick="showTab('stok')">Stok Barang</button>
+            <button onclick="showTab('jadwal')">Jadwal</button>
+            <button onclick="showTab('transaksi')">Transaksi</button>
+            <button onclick="showTab('keuangan')">Keuangan</button>
+            <button onclick="showTab('laporan')">Laporan</button>
+        </div>
+
+        <!-- Tab Stok Barang -->
+        <div id="stok" class="tab active">
+            <h2>Data Stok Barang</h2>
+            <div class="action-buttons">
+                <button onclick="tambahStok()">Tambah Barang</button>
+                <button onclick="resetFormStok()" style="background-color: #6c757d;">Batal</button>
+                <button class="export-btn" onclick="exportToExcel('stok')">Ekspor ke Excel</button>
+            </div>
+            <div class="form-group">
+                <label for="namaBarang">Nama Barang</label>
+                <input type="text" id="namaBarang" placeholder="Masukkan nama barang">
+            </div>
+            <div class="form-group">
+                <label for="hargaBarang">Harga Satuan (Rp)</label>
+                <input type="number" id="hargaBarang" placeholder="Masukkan harga satuan">
+            </div>
+            <div class="form-group">
+                <label for="stokBarang">Jumlah Stok</label>
+                <input type="number" id="stokBarang" placeholder="Masukkan jumlah stok">
+            </div>
+            <table id="tabelStok">
+                <thead>
+                    <tr>
+                        <th>Nama Barang</th>
+                        <th>Harga Satuan (Rp)</th>
+                        <th>Jumlah Stok</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="bodyStok"></tbody>
+            </table>
+        </div>
+
+        <!-- Tab Jadwal -->
+        <div id="jadwal" class="tab">
+            <h2>Jadwal Kegiatan</h2>
+            <div class="action-buttons">
+                <button onclick="tambahJadwal()">Tambah Jadwal</button>
+                <button onclick="resetFormJadwal()" style="background-color: #6c757d;">Batal</button>
+                <button class="export-btn" onclick="exportToExcel('jadwal')">Ekspor ke Excel</button>
+            </div>
+            <div class="form-group">
+                <label for="namaKegiatan">Nama Kegiatan</label>
+                <input type="text" id="namaKegiatan" placeholder="Masukkan nama kegiatan">
+            </div>
+            <div class="form-group">
+                <label for="tanggalKegiatan">Tanggal</label>
+                <input type="date" id="tanggalKegiatan">
+            </div>
+            <table id="tabelJadwal">
+                <thead>
+                    <tr>
+                        <th>Nama Kegiatan</th>
+                        <th>Tanggal</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="bodyJadwal"></tbody>
+            </table>
+        </div>
+
+        <!-- Tab Transaksi -->
+        <div id="transaksi" class="tab">
+            <h2>Data Transaksi</h2>
+            <div class="action-buttons">
+                <button onclick="tambahTransaksi()">Tambah Transaksi</button>
+                <button onclick="resetFormTransaksi()" style="background-color: #6c757d;">Batal</button>
+                <button class="export-btn" onclick="exportToExcel('transaksi')">Ekspor ke Excel</button>
+            </div>
+            <div class="form-group">
+                <label for="barangTransaksi">Barang</label>
+                <select id="barangTransaksi"></select>
+            </div>
+            <div class="form-group">
+                <label for="jumlahTransaksi">Jumlah</label>
+                <input type="number" id="jumlahTransaksi" placeholder="Masukkan jumlah">
+            </div>
+            <div class="form-group">
+                <label for="tanggalTransaksi">Tanggal</label>
+                <input type="date" id="tanggalTransaksi">
+            </div>
+            <table id="tabelTransaksi">
+                <thead>
+                    <tr>
+                        <th>Barang</th>
+                        <th>Jumlah</th>
+                        <th>Total (Rp)</th>
+                        <th>Tanggal</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="bodyTransaksi"></tbody>
+            </table>
+        </div>
+
+        <!-- Tab Keuangan -->
+        <div id="keuangan" class="tab">
+            <h2>Data Pengeluaran</h2>
+            <div class="action-buttons">
+                <button onclick="tambahPengeluaran()">Tambah Pengeluaran</button>
+                <button onclick="resetFormPengeluaran()" style="background-color: #6c757d;">Batal</button>
+                <button class="export-btn" onclick="exportToExcel('keuangan')">Ekspor ke Excel</button>
+            </div>
+            <div class="form-group">
+                <label for="deskripsiPengeluaran">Deskripsi</label>
+                <input type="text" id="deskripsiPengeluaran" placeholder="Masukkan deskripsi pengeluaran">
+            </div>
+            <div class="form-group">
+                <label for="jumlahPengeluaran">Jumlah (Rp)</label>
+                <input type="number" id="jumlahPengeluaran" placeholder="Masukkan jumlah">
+            </div>
+            <div class="form-group">
+                <label for="tanggalPengeluaran">Tanggal</label>
+                <input type="date" id="tanggalPengeluaran">
+            </div>
+            <table id="tabelPengeluaran">
+                <thead>
+                    <tr>
+                        <th>Deskripsi</th>
+                        <th>Jumlah (Rp)</th>
+                        <th>Tanggal</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="bodyPengeluaran"></tbody>
+            </table>
+            <div class="summary">
+                <h3>Ringkasan Keuangan</h3>
+                <p>Total Pendapatan: Rp <span id="totalPendapatan">0</span></p>
+                <p>Total Pengeluaran: Rp <span id="totalPengeluaran">0</span></p>
+                <p>Laba/Rugi: Rp <span id="labaRugi">0</span></p>
+                <button class="export-btn" onclick="exportToExcel('ringkasan')">Ekspor Ringkasan ke Excel</button>
+            </div>
+        </div>
+
+        <!-- Tab Laporan -->
+        <div id="laporan" class="tab">
+            <h2>Laporan Keuangan</h2>
+            <div id="chartContainer">
+                <canvas id="keuanganChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Inisialisasi data pengguna
+        let currentUser = null;
+        let users = JSON.parse(localStorage.getItem('users')) || {};
+        let stokList = [];
+        let jadwalList = [];
+        let transaksiList = [];
+        let pengeluaranList = [];
+        let editIndex = null;
+
+        // Fungsi untuk menampilkan notifikasi
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `show ${type}`;
+            setTimeout(() => {
+                notification.className = '';
+            }, 3000);
+        }
+
+        // Cek status login saat halaman dimuat
+        function init() {
+            const loggedInUser = localStorage.getItem('currentUser');
+            if (loggedInUser) {
+                currentUser = loggedInUser;
+                loadUserData();
+                showMainPage();
+            } else {
+                showLoginPage();
+            }
+        }
+
+        // Fungsi login
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const error = document.getElementById('loginError');
+
+            if (users[username] && users[username].password === password) {
+                currentUser = username;
+                localStorage.setItem('currentUser', currentUser);
+                loadUserData();
+                showMainPage();
+                error.textContent = '';
+                showNotification('Login berhasil!', 'success');
+            } else {
+                error.textContent = 'Username atau password salah!';
+                showNotification('Login gagal: Username atau password salah!', 'error');
+            }
+        }
+
+        // Fungsi daftar
+        function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const error = document.getElementById('loginError');
+
+            if (username && password) {
+                if (users[username]) {
+                    error.textContent = 'Username sudah terdaftar!';
+                    showNotification('Pendaftaran gagal: Username sudah terdaftar!', 'error');
+                } else {
+                    users[username] = {
+                        password,
+                        stokList: [],
+                        jadwalList: [],
+                        transaksiList: [],
+                        pengeluaranList: []
+                    };
+                    localStorage.setItem('users', JSON.stringify(users));
+                    error.textContent = 'Pendaftaran berhasil! Silakan login.';
+                    showNotification('Pendaftaran berhasil!', 'success');
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                }
+            } else {
+                error.textContent = 'Lengkapi semua kolom!';
+                showNotification('Pendaftaran gagal: Lengkapi semua kolom!', 'error');
+            }
+        }
+
+        // Fungsi logout
+        function logout() {
+            saveUserData();
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            showLoginPage();
+            showNotification('Logout berhasil!', 'success');
+        }
+
+        // Fungsi untuk memuat data pengguna
+        function loadUserData() {
+            stokList = users[currentUser].stokList || [];
+            jadwalList = users[currentUser].jadwalList || [];
+            transaksiList = users[currentUser].transaksiList || [];
+            pengeluaranList = users[currentUser].pengeluaranList || [];
+            tampilkanStok();
+            tampilkanJadwal();
+            tampilkanTransaksi();
+            tampilkanPengeluaran();
+            updateBarangOptions();
+            tampilkanRingkasanKeuangan();
+        }
+
+        // Fungsi untuk menyimpan data pengguna
+        function saveUserData() {
+            users[currentUser] = {
+                ...users[currentUser],
+                stokList,
+                jadwalList,
+                transaksiList,
+                pengeluaranList
+            };
+            localStorage.setItem('users', JSON.stringify(users));
+        }
+
+        // Fungsi untuk menampilkan halaman login
+        function showLoginPage() {
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('mainPage').classList.add('hidden');
+        }
+
+        // Fungsi untuk menampilkan halaman utama
+        function showMainPage() {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('mainPage').classList.remove('hidden');
+        }
+
+        // Fungsi untuk menampilkan tab
+        function showTab(tabId) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            if (tabId === 'keuangan') {
+                tampilkanRingkasanKeuangan();
+            }
+            if (tabId === 'laporan') {
+                renderChart();
+            }
+        }
+
+        // Fungsi untuk memperbarui opsi barang di form transaksi
+        function updateBarangOptions() {
+            const select = document.getElementById('barangTransaksi');
+            select.innerHTML = '';
+            stokList.forEach(barang => {
+                const option = document.createElement('option');
+                option.value = barang.nama;
+                option.text = `${barang.nama} (Rp ${barang.harga}, Stok: ${barang.stok})`;
+                select.appendChild(option);
+            });
+        }
+
+        // --- Stok Barang ---
+        function tambahStok() {
+            const nama = document.getElementById('namaBarang').value;
+            const harga = document.getElementById('hargaBarang').value;
+            const stok = document.getElementById('stokBarang').value;
+            if (nama && harga && stok && parseInt(harga) >= 0 && parseInt(stok) >= 0) {
+                if (editIndex !== null) {
+                    stokList[editIndex] = { nama, harga: parseInt(harga), stok: parseInt(stok) };
+                    showNotification(`Barang "${nama}" berhasil diperbarui!`, 'success');
+                    editIndex = null;
+                } else {
+                    stokList.push({ nama, harga: parseInt(harga), stok: parseInt(stok) });
+                    showNotification(`Barang "${nama}" berhasil ditambahkan!`, 'success');
+                }
+                saveUserData();
+                resetFormStok();
+                tampilkanStok();
+                updateBarangOptions();
+            } else {
+                showNotification('Gagal: Lengkapi semua kolom dengan nilai yang valid!', 'error');
+            }
+        }
+
+        function editStok(index) {
+            editIndex = index;
+            const barang = stokList[index];
+            document.getElementById('namaBarang').value = barang.nama;
+            document.getElementById('hargaBarang').value = barang.harga;
+            document.getElementById('stokBarang').value = barang.stok;
+        }
+
+        function hapusStok(index) {
+            if (confirm('Yakin ingin menghapus barang ini?')) {
+                const barang = stokList[index];
+                stokList.splice(index, 1);
+                saveUserData();
+                tampilkanStok();
+                updateBarangOptions();
+                showNotification(`Barang "${barang.nama}" berhasil dihapus!`, 'success');
+            }
+        }
+
+        function resetFormStok() {
+            document.getElementById('namaBarang').value = '';
+            document.getElementById('hargaBarang').value = '';
+            document.getElementById('stokBarang').value = '';
+            editIndex = null;
+        }
+
+        function tampilkanStok() {
+            const tbody = document.getElementById('bodyStok');
+            tbody.innerHTML = '';
+            stokList.forEach((barang, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${barang.nama}</td>
+                    <td>${barang.harga}</td>
+                    <td>${barang.stok}</td>
+                    <td>
+                        <button class="edit-btn" onclick="editStok(${index})">Edit</button>
+                        <button class="delete-btn" onclick="hapusStok(${index})">Hapus</button>
+                    </td>`;
+                tbody.appendChild(row);
+            });
+        }
+
+        // --- Jadwal ---
+        function tambahJadwal() {
+            const nama = document.getElementById('namaKegiatan').value;
+            const tanggal = document.getElementById('tanggalKegiatan').value;
+            if (nama && tanggal) {
+                if (editIndex !== null) {
+                    jadwalList[editIndex] = { nama, tanggal };
+                    showNotification(`Jadwal "${nama}" berhasil diperbarui!`, 'success');
+                    editIndex = null;
+                } else {
+                    jadwalList.push({ nama, tanggal });
+                    showNotification(`Jadwal "${nama}" berhasil ditambahkan!`, 'success');
+                }
+                saveUserData();
+                resetFormJadwal();
+                tampilkanJadwal();
+            } else {
+                showNotification('Gagal: Lengkapi semua kolom!', 'error');
+            }
+        }
+
+        function editJadwal(index) {
+            editIndex = index;
+            const jadwal = jadwalList[index];
+            document.getElementById('namaKegiatan').value = jadwal.nama;
+            document.getElementById('tanggalKegiatan').value = jadwal.tanggal;
+        }
+
+        function hapusJadwal(index) {
+            if (confirm('Yakin ingin menghapus jadwal ini?')) {
+                const jadwal = jadwalList[index];
+                jadwalList.splice(index, 1);
+                saveUserData();
+                tampilkanJadwal();
+                showNotification(`Jadwal "${jadwal.nama}" berhasil dihapus!`, 'success');
+            }
+        }
+
+        function resetFormJadwal() {
+            document.getElementById('namaKegiatan').value = '';
+            document.getElementById('tanggalKegiatan').value = '';
+            editIndex = null;
+        }
+
+        function tampilkanJadwal() {
+            const tbody = document.getElementById('bodyJadwal');
+            tbody.innerHTML = '';
+            jadwalList.forEach((jadwal, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${jadwal.nama}</td>
+                    <td>${jadwal.tanggal}</td>
+                    <td>
+                        <button class="edit-btn" onclick="editJadwal(${index})">Edit</button>
+                        <button class="delete-btn" onclick="hapusJadwal(${index})">Hapus</button>
+                    </td>`;
+                tbody.appendChild(row);
+            });
+        }
+
+        // --- Transaksi ---
+        function tambahTransaksi() {
+            const barang = document.getElementById('barangTransaksi').value;
+            const jumlah = document.getElementById('jumlahTransaksi').value;
+            const tanggal = document.getElementById('tanggalTransaksi').value;
+            if (barang && jumlah && tanggal && parseInt(jumlah) > 0) {
+                const barangData = stokList.find(b => b.nama === barang);
+                if (barangData.stok >= parseInt(jumlah)) {
+                    const total = barangData.harga * parseInt(jumlah);
+                    if (editIndex !== null) {
+                        // Kembalikan stok sebelumnya jika edit
+                        const transaksiLama = transaksiList[editIndex];
+                        const barangLama = stokList.find(b => b.nama === transaksiLama.barang);
+                        barangLama.stok += transaksiLama.jumlah;
+                        transaksiList[editIndex] = { barang, jumlah: parseInt(jumlah), total, tanggal };
+                        showNotification(`Transaksi untuk "${barang}" berhasil diperbarui!`, 'success');
+                    } else {
+                        transaksiList.push({ barang, jumlah: parseInt(jumlah), total, tanggal });
+                        showNotification(`Transaksi untuk "${barang}" berhasil ditambahkan!`, 'success');
+                    }
+                    // Kurangi stok
+                    barangData.stok -= parseInt(jumlah);
+                    saveUserData();
+                    resetFormTransaksi();
+                    tampilkanTransaksi();
+                    tampilkanStok();
+                    updateBarangOptions();
+                    tampilkanRingkasanKeuangan();
+                } else {
+                    showNotification('Gagal: Stok barang tidak cukup!', 'error');
+                }
+            } else {
+                showNotification('Gagal: Lengkapi semua kolom dengan nilai yang valid!', 'error');
+            }
+        }
+
+        function editTransaksi(index) {
+            editIndex = index;
+            const transaksi = transaksiList[index];
+            document.getElementById('barangTransaksi').value = transaksi.barang;
+            document.getElementById('jumlahTransaksi').value = transaksi.jumlah;
+            document.getElementById('tanggalTransaksi').value = transaksi.tanggal;
+        }
+
+        function hapusTransaksi(index) {
+            if (confirm('Yakin ingin menghapus transaksi ini?')) {
+                const transaksi = transaksiList[index];
+                const barang = stokList.find(b => b.nama === transaksi.barang);
+                barang.stok += transaksi.jumlah; // Kembalikan stok
+                transaksiList.splice(index, 1);
+                saveUserData();
+                tampilkanTransaksi();
+                tampilkanStok();
+                updateBarangOptions();
+                tampilkanRingkasanKeuangan();
+                showNotification(`Transaksi untuk "${transaksi.barang}" berhasil dihapus!`, 'success');
+            }
+        }
+
+        function resetFormTransaksi() {
+            document.getElementById('jumlahTransaksi').value = '';
+            document.getElementById('tanggalTransaksi').value = '';
+            editIndex = null;
+        }
+
+        function tampilkanTransaksi() {
+            const tbody = document.getElementById('bodyTransaksi');
+            tbody.innerHTML = '';
+            transaksiList.forEach((transaksi, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${transaksi.barang}</td>
+                    <td>${transaksi.jumlah}</td>
+                    <td>${transaksi.total}</td>
+                    <td>${transaksi.tanggal}</td>
+                    <td>
+                        <button class="edit-btn" onclick="editTransaksi(${index})">Edit</button>
+                        <button class="delete-btn" onclick="hapusTransaksi(${index})">Hapus</button>
+                    </td>`;
+                tbody.appendChild(row);
+            });
+        }
+
+        // --- Pengeluaran ---
+        function tambahPengeluaran() {
+            const deskripsi = document.getElementById('deskripsiPengeluaran').value;
+            const jumlah = document.getElementById('jumlahPengeluaran').value;
+            const tanggal = document.getElementById('tanggalPengeluaran').value;
+            if (deskripsi && jumlah && tanggal && parseInt(jumlah) >= 0) {
+                if (editIndex !== null) {
+                    pengeluaranList[editIndex] = { deskripsi, jumlah: parseInt(jumlah), tanggal };
+                    showNotification(`Pengeluaran "${deskripsi}" berhasil diperbarui!`, 'success');
+                    editIndex = null;
+                } else {
+                    pengeluaranList.push({ deskripsi, jumlah: parseInt(jumlah), tanggal });
+                    showNotification(`Pengeluaran "${deskripsi}" berhasil ditambahkan!`, 'success');
+                }
+                saveUserData();
+                resetFormPengeluaran();
+                tampilkanPengeluaran();
+                tampilkanRingkasanKeuangan();
+            } else {
+                showNotification('Gagal: Lengkapi semua kolom dengan nilai yang valid!', 'error');
+            }
+        }
+
+        function editPengeluaran(index) {
+            editIndex = index;
+            const pengeluaran = pengeluaranList[index];
+            document.getElementById('deskripsiPengeluaran').value = pengeluaran.deskripsi;
+            document.getElementById('jumlahPengeluaran').value = pengeluaran.jumlah;
+            document.getElementById('tanggalPengeluaran').value = pengeluaran.tanggal;
+        }
+
+        function hapusPengeluaran(index) {
+            if (confirm('Yakin ingin menghapus pengeluaran ini?')) {
+                const pengeluaran = pengeluaranList[index];
+                pengeluaranList.splice(index, 1);
+                saveUserData();
+                tampilkanPengeluaran();
+                tampilkanRingkasanKeuangan();
+                showNotification(`Pengeluaran "${pengeluaran.deskripsi}" berhasil dihapus!`, 'success');
+            }
+        }
+
+        function resetFormPengeluaran() {
+            document.getElementById('deskripsiPengeluaran').value = '';
+            document.getElementById('jumlahPengeluaran').value = '';
+            document.getElementById('tanggalPengeluaran').value = '';
+            editIndex = null;
+        }
+
+        function tampilkanPengeluaran() {
+            const tbody = document.getElementById('bodyPengeluaran');
+            tbody.innerHTML = '';
+            pengeluaranList.forEach((pengeluaran, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${pengeluaran.deskripsi}</td>
+                    <td>${pengeluaran.jumlah}</td>
+                    <td>${pengeluaran.tanggal}</td>
+                    <td>
+                        <button class="edit-btn" onclick="editPengeluaran(${index})">Edit</button>
+                        <button class="delete-btn" onclick="hapusPengeluaran(${index})">Hapus</button>
+                    </td>`;
+                tbody.appendChild(row);
+            });
+        }
+
+        // --- Ringkasan Keuangan ---
+        function tampilkanRingkasanKeuangan() {
+            const totalPendapatan = transaksiList.reduce((sum, t) => sum + t.total, 0);
+            const totalPengeluaran = pengeluaranList.reduce((sum, p) => sum + p.jumlah, 0);
+            const labaRugi = totalPendapatan - totalPengeluaran;
+
+            document.getElementById('totalPendapatan').textContent = totalPendapatan;
+            document.getElementById('totalPengeluaran').textContent = totalPengeluaran;
+            document.getElementById('labaRugi').textContent = labaRugi;
+        }
+
+        // --- Grafik ---
+        let chartInstance = null;
+
+        function renderChart() {
+            const ctx = document.getElementById('keuanganChart').getContext('2d');
+            const labels = [...new Set(transaksiList.map(t => t.barang).concat(pengeluaranList.map(p => p.deskripsi)))];
+            const pendapatanData = labels.map(label => {
+                return transaksiList
+                    .filter(t => t.barang === label)
+                    .reduce((sum, t) => sum + t.total, 0);
+            });
+            const pengeluaranData = labels.map(label => {
+                return pengeluaranList
+                    .filter(p => p.deskripsi === label)
+                    .reduce((sum, p) => sum + p.jumlah, 0);
+            });
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Pendapatan (Rp)',
+                            data: pendapatanData,
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Pengeluaran (Rp)',
+                            data: pengeluaranData,
+                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Jumlah (Rp)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Kategori'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Ekspor ke Excel ---
+        function exportToExcel(type) {
+            let data, headers, fileName, sheetName;
+            if (type === 'stok') {
+                headers = ['Nama Barang', 'Harga Satuan (Rp)', 'Jumlah Stok'];
+                data = stokList.map(b => [b.nama, b.harga, b.stok]);
+                fileName = 'Stok_Barang_UKM.xlsx';
+                sheetName = 'Stok Barang';
+            } else if (type === 'jadwal') {
+                headers = ['Nama Kegiatan', 'Tanggal'];
+                data = jadwalList.map(j => [j.nama, j.tanggal]);
+                fileName = 'Jadwal_UKM.xlsx';
+                sheetName = 'Jadwal';
+            } else if (type === 'transaksi') {
+                headers = ['Barang', 'Jumlah', 'Total (Rp)', 'Tanggal'];
+                data = transaksiList.map(t => [t.barang, t.jumlah, t.total, t.tanggal]);
+                fileName = 'Transaksi_UKM.xlsx';
+                sheetName = 'Transaksi';
+            } else if (type === 'keuangan') {
+                headers = ['Deskripsi', 'Jumlah (Rp)', 'Tanggal'];
+                data = pengeluaranList.map(p => [p.deskripsi, p.jumlah, p.tanggal]);
+                fileName = 'Pengeluaran_UKM.xlsx';
+                sheetName = 'Pengeluaran';
+            } else if (type === 'ringkasan') {
+                const totalPendapatan = transaksiList.reduce((sum, t) => sum + t.total, 0);
+                const totalPengeluaran = pengeluaranList.reduce((sum, p) => sum + p.jumlah, 0);
+                const labaRugi = totalPendapatan - totalPengeluaran;
+                headers = ['Kategori', 'Jumlah (Rp)'];
+                data = [
+                    ['Total Pendapatan', totalPendapatan],
+                    ['Total Pengeluaran', totalPengeluaran],
+                    ['Laba/Rugi', labaRugi]
+                ];
+                fileName = 'Ringkasan_Keuangan_UKM.xlsx';
+                sheetName = 'Ringkasan Keuangan';
+            }
+
+            // Buat worksheet
+            const ws = XLSX.utils.json_to_sheet([headers, ...data], { skipHeader: true });
+            // Atur lebar kolom otomatis
+            const colWidths = headers.map((h, i) => ({
+                wch: Math.max(h.length, ...data.map(row => String(row[i]).length))
+            }));
+            ws['!cols'] = colWidths;
+
+            // Buat workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+            // Ekspor ke file
+            XLSX.writeFile(wb, fileName);
+            showNotification(`Data ${sheetName} berhasil diekspor!`, 'success');
+        }
+
+        // Inisialisasi aplikasi
+        init();
+    </script>
+</body>
+</html>
